@@ -1,6 +1,6 @@
 # Bachelor Thesis Cnn Max H
 
-cnn
+cnn von Max
 
 ## Getting started
 
