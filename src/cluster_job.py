@@ -15,13 +15,13 @@ N_REFL = 109
 def_model = DefaultTrainedModel()
 q_values_used_for_training = def_model.q_values
 sample = def_model.sample
-DEBUG = False
+DEBUG = True
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 if DEBUG:
     learning_rate, noise_level, num_units, num_filter_1, num_filter_2, kernel_size_1, kernel_size_2, batch_size=0.001, 0.2, 100, 100, 50, 12, 8, 256
     N_EPOCH = 2
-    DEBUG_PATH="debug"
+    DEBUG_PATH="debug/"
 
 
 else:
@@ -38,7 +38,7 @@ else:
 
 
 SAVE_STRING = f'{learning_rate}_{noise_level}_{num_units}_{num_filter_1}_{num_filter_2}_{kernel_size_1}_{kernel_size_2}_{batch_size}_{current_time}'
-logs = f'logs/{DEBUG_PATH}/{SAVE_STRING}'
+logs = os.path.join("logs/", DEBUG_PATH, f"{SAVE_STRING}")
 print("Hyperparameters used")
 print(SAVE_STRING)
 
@@ -53,16 +53,16 @@ HP_NOISE_LEVEL = hp.HParam("noise_level", hp.Discrete([noise_level]))
 HP_BATCH_SIZE = hp.HParam("batch_size", hp.Discrete([batch_size]))
 
 #Load Data from disc
-with open(f"data/{DEBUG_PATH}/test_data_objects", "rb") as inp:
+with open(os.path.join("data/", DEBUG_PATH, "test_data_objects"), "rb") as inp:
     generator, ip, out, q_values, labels_full = pickle.load(inp)
 
 data_train_real_scale, labels_train_unit_scale = np.loadtxt(
-    f"data/{DEBUG_PATH}/reflectivity_real_scale.csv"), np.loadtxt(f"data/{DEBUG_PATH}/labels_unit_scale.csv")
+    os.path.join("data/", DEBUG_PATH, "reflectivity_real_scale.csv")), np.loadtxt(os.path.join("data/", DEBUG_PATH, "labels_unit_scale.csv"))
 data_test_real_scale, labels_test_unit_scale = np.loadtxt(
-    f"data/{DEBUG_PATH}/test_reflectivity_real_scale_{noise_level}.csv"), np.loadtxt(f"data/{DEBUG_PATH}/test_labels_unit_scale.csv")
+   os.path.join("data/", DEBUG_PATH, f"test_reflectivity_real_scale_{noise_level}.csv")), np.loadtxt(os.path.join("data/", DEBUG_PATH, "test_labels_unit_scale.csv"))
 
-mean_data, std_data, mean_labels, std_labels = np.loadtxt(f"data/{DEBUG_PATH}/mean_data_{noise_level}.csv"), np.loadtxt(
-   f"data/{DEBUG_PATH}/std_data_{noise_level}.csv"), np.loadtxt(f"data/{DEBUG_PATH}/mean_labels.csv"), np.loadtxt(f"data/{DEBUG_PATH}/std_labels.csv")
+mean_data, std_data, mean_labels, std_labels = np.loadtxt(f"data/{DEBUG_PATH}mean_data_{noise_level}.csv"), np.loadtxt(
+   os.path.join("data/", DEBUG_PATH, f"std_data_{noise_level}.csv")), np.loadtxt(os.path.join("data/", DEBUG_PATH, "mean_labels.csv")), np.loadtxt(os.path.join("data/", DEBUG_PATH, "std_labels.csv"))
 
 n_samples_test=len(data_test_real_scale)
 #Convert Data to Tensors for handling within noise layer
@@ -126,9 +126,9 @@ def testing_loss(model):
     
     #save results for synthetic data for further analysis
     np.savetxt(
-        f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_logerror_synth.csv", log_loss_errors_synth)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_logerror_synth.csv"), log_loss_errors_synth)
     np.savetxt(
-        f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_parameter_error_synth.csv", param_errors_synth)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_parameter_error_synth.csv"), param_errors_synth)
 
     #Test on experimental data and save results to disc
     test_refl_lst, test_q_values_lst, lables_lst = data_gen.iterate_experiments()
@@ -136,10 +136,10 @@ def testing_loss(model):
         test_refl_lst, test_q_values_lst, lables_lst, q_values_used_for_training, "CNN", sample, model, noise_level, mean_labels, std_labels, mean_data, std_data)
     
     np.savetxt(
-        f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_logerror_exp.csv", log_error_lst_exp)
-    np.savetxt(f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_th.csv", th_lst_exp)
-    np.savetxt(f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_rh.csv", rh_lst_exp)
-    np.savetxt(f"evaluation_errors/{DEBUG_PATH}/{SAVE_STRING}_sld.csv", sld_lst_exp)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_logerror_exp.csv"), log_error_lst_exp)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_th.csv"), th_lst_exp)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst_exp)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst_exp)
 
     return 0
 #Main Training and loggin loop
@@ -179,7 +179,7 @@ def main():
               )
     print(model.summary())
     testing_loss(model)
-    model.save(f'models/{DEBUG_PATH}/{SAVE_STRING}')
+    model.save(os.path.join("models/", DEBUG_PATH, f"{SAVE_STRING}"))
 
     #file_writer = tf.summary.create_file_writer(f'logs/hp/{SAVE_STRING}_log_loss')
 
