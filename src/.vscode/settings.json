@@ -1,5 +1,5 @@
 {
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
-    "terminal.integrated.cwd": "C:\\Users\\maxim\\Dropbox\\Studium\\Bachelorarbeit\\src\\1D_CNN"
+    "terminal.integrated.cwd": "/home/maximilian/Dropbox/Studium/bachelor_thesis_cnn_max_h"
 }

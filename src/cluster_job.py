@@ -121,28 +121,28 @@ def get_model(hparams):
 
 def testing_loss(model):
     #Test on synthetic data
-    param_errors_synth, log_loss_errors_synth = pipeline.test_on_syn_data_in_pipeline(
-        SAVE_STRING, n_samples_test, test_dataset_real_scale, data_test_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels, labels_full, generator)
+    absolute_error_array_synth, mse_errors_synth = pipeline.test_on_syn_data_in_pipeline(
+        n_samples_test, test_dataset_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels)
     
     #save results for synthetic data for further analysis
     np.savetxt(
-        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_logerror_synth.csv"), log_loss_errors_synth)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_mse_errors_synth.csv"), mse_errors_synth)
     np.savetxt(
-        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_parameter_error_synth.csv"), param_errors_synth)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_absolute_errors_synth.csv"), absolute_error_array_synth)
 
     #Test on experimental data and save results to disc
     test_refl_lst, test_q_values_lst, lables_lst = data_gen.iterate_experiments()
-    th_lst_exp, rh_lst_exp, sld_lst_exp, _, log_error_lst_exp = pipeline.pred_and_calculate_errors(
+    th_lst, rh_lst, sld_lst, param_error_lst, _ = pipeline.test_on_exp_data_pipeline(
         test_refl_lst, test_q_values_lst, lables_lst, q_values_used_for_training, "CNN", sample, model, noise_level, mean_labels, std_labels, mean_data, std_data)
     
     np.savetxt(
-        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_logerror_exp.csv"), log_error_lst_exp)
-    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_th.csv"), th_lst_exp)
-    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst_exp)
-    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst_exp)
+        os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_mse_errors_exp.csv"), param_error_lst)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_th.csv"), th_lst)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst)
+    np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst)
 
     return 0
-#Main Training and loggin loop
+#Main Training and logging loop
 def main():
     hparams = {HP_LR: learning_rate, HP_NOISE_LEVEL: noise_level, HP_NUM_UNITS: num_units,
                HP_NUM_FILTER_1: num_filter_1, HP_NUM_FILTER_2: num_filter_2,

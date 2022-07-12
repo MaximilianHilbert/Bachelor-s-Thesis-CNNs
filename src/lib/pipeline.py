@@ -9,7 +9,7 @@ from mlreflect.models import DefaultTrainedModel, TrainedModel
 from mlreflect.curve_fitter import CurveFitter
 from tensorflow import keras
 PARAMETERS = ["Film_thickness", "Film_roughness", "Film_sld"]
-
+mse=tf.keras.losses.MeanSquaredError()
 
 def create_train_val_test_datasets(combined_dict, BATCH_SIZE):
     train_data = combined_dict["data_train"]
@@ -47,9 +47,8 @@ def evaluation(n_samples_test, test_dataset_real_scale, model, N_REFL):
     return pred_unit_scale
 
 
-def log_error(y_pred, y):
-    return np.nanmean(np.absolute(np.log10(y_pred)-np.log10(y)))
-
+# def log_error(y_pred, y):
+#     return np.mean((np.log10(y_pred)-np.log10(y))**2)
 
 def interp_predict_mlp_test(test_refl, test_q_values):
     trained_model_mlp = DefaultTrainedModel()
@@ -60,8 +59,6 @@ def interp_predict_mlp_test(test_refl, test_q_values):
 
 
 def interp_predict_cnn_test(test_refl, q_values_used_for_training, test_q_values, sample, keras_model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data):
-    
-
     class CurveFitterCNN:
         def __init__(self, trained_model: TrainedModel):
             self.trained_model = trained_model
@@ -137,83 +134,81 @@ def interp_predict_cnn_test(test_refl, q_values_used_for_training, test_q_values
         test_refl, test_q_values, polish=False, optimize_q=False)
     return pred_refl_cnn
 
+def calculate_absolute_error_lists(pred_lables_lst, test_lables_lst):
+    th_lst, rh_lst, sld_lst, error_lst=[], [], [], []
+    for lables_set, pred_set in zip(test_lables_lst, pred_lables_lst):
+            pred_set = pred_set.to_numpy()
+            for param_idx, param in enumerate(PARAMETERS):
+                error_lst = []
+                # special treatment for single values
+                if pred_set[:, param_idx].shape != lables_set[param_idx].shape:
+                    error_lst.append(np.absolute(
+                        lables_set[param_idx]-pred_set[:, param_idx])[0])
+                # base case of multiple values in list
+                else:
+                    for absolute_errors in np.absolute(lables_set[param_idx]-pred_set[:, param_idx]):
+                        error_lst.append(absolute_errors)
+                for element in error_lst:
+                    if param == "Film_thickness":
+                        th_lst.append(element)
+                    if param == "Film_roughness":
+                        rh_lst.append(element)
+                    if param == "Film_sld":
+                        sld_lst.append(element)
 
-def pred_and_calculate_errors(test_refl_lst, test_q_values_lst, test_lables_lst, q_values_used_for_training, model_name, sample, model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data):
-    th_lst = []
-    rh_lst = []
-    sld_lst = []
-    refl_sim_lst = []
+    return th_lst, rh_lst, sld_lst
+    
+def test_on_exp_data_pipeline(test_refl_lst, test_q_values_lst, test_lables_lst, q_values_used_for_training, model_name, sample, model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data):
     pred_lables_lst = []
-    log_error_lst = []
+    param_error_lst=[]
+    th_lst, rh_lst, sld_lst=[], [], []
+    mse=tf.keras.losses.MeanSquaredError()
     # loop over all test datasets available
     for curve_idx, (test_curves, q_values) in enumerate(zip(test_refl_lst, test_q_values_lst)):
         if model_name == "MLP":
             pred_dict = interp_predict_mlp_test(
                 test_curves, q_values)
         else:
-            pred_dict = interp_predict_cnn_test(
+            pred_dict =interp_predict_cnn_test(
                 test_curves, q_values_used_for_training, q_values, sample, model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data)
         pred_lables_lst.append(pred_dict["predicted_parameters"][[
             "Film_thickness", "Film_roughness", "Film_sld"]])
-        refl_sim_lst.append(pred_dict["predicted_reflectivity"])
+    param_clean_test_list=[]
+    # norm. params and save to list
+    for experiment in test_lables_lst:
+        for param_set in zip(np.atleast_1d(experiment[0]).tolist(), np.atleast_1d(experiment[1]).tolist(), np.atleast_1d(experiment[2]).tolist()):
+            param_set=(param_set-mean_labels)/std_labels
+            param_clean_test_list.append(param_set)
+    # mse error and norm. pred values
+    for pred_set in pred_lables_lst:
+        pred_set=(pred_set-mean_labels)/std_labels
+        for curve_param_true, curve_param_pred in zip(np.atleast_1d(param_clean_test_list), np.atleast_1d(pred_set.to_numpy())):
+            param_error_lst.append(mse(curve_param_true, curve_param_pred).numpy())
 
-    # first model that gets served is MLP
-    for lables_set, pred_set in zip(test_lables_lst, pred_lables_lst):
-        pred_set = pred_set.to_numpy()
-        for param_idx, param in enumerate(PARAMETERS):
-            error_lst = []
-            # special treatment for single values
-            if pred_set[:, param_idx].shape != lables_set[param_idx].shape:
-                error_lst.append(np.absolute(
-                    lables_set[param_idx]-pred_set[:, param_idx])[0])
-            # base case of multiple values in list
-            else:
-                # Kontrolle
-                for absolute_errors in np.absolute(lables_set[param_idx]-pred_set[:, param_idx]):
-                    error_lst.append(absolute_errors)
-            for element in error_lst:
-                if param == "Film_thickness":
-                    th_lst.append(element)
-                if param == "Film_roughness":
-                    rh_lst.append(element)
-                if param == "Film_sld":
-                    sld_lst.append(element)
-    for curve_number, (curve_true, curve_sim) in enumerate(zip(test_refl_lst, refl_sim_lst)):
-        log_error_lst.append(log_error(curve_true, curve_sim))
-    th_mean = np.nanmedian(th_lst)
-    rh_mean = np.nanmedian(rh_lst)
-    sld_mean = np.nanmedian(sld_lst)
-    log_mean = np.nanmedian(log_error_lst)
-    print(f"{model_name}: ")
-    print(f"Exp Median param errors: {th_mean} {rh_mean} {sld_mean}")
-    print(f"Exp Median log error: {log_mean}")
-    return th_lst, rh_lst, sld_lst, refl_sim_lst, log_error_lst
+            
+    th_lst, rh_lst, sld_lst=calculate_absolute_error_lists(pred_lables_lst, test_lables_lst)
+
+    print(f"{model_name}")
+    print(f"Exp median param error: {np.median(th_lst), np.median(rh_lst), np.median(sld_lst)}")
+    print(f"Exp mse median: {np.median(param_error_lst)}")
+    return th_lst, rh_lst, sld_lst, param_error_lst
 
 
-def test_on_syn_data_in_pipeline(SAVE_STRING, n_samples_test, test_dataset_real_scale, data_test_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels, lables_full, gen_test):
+def test_on_syn_data_in_pipeline(n_samples_test, test_dataset_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels):
     pred_params_unit_scale = evaluation(
         n_samples_test, test_dataset_real_scale, model, N_REFL)
     pred_params_real_scale = pred_params_unit_scale*std_labels+mean_labels
     pred_params_real_scale = pd.DataFrame(pred_params_real_scale, columns=[
                                           "Film_thickness", "Film_roughness", "Film_sld"])
 
-    # copy labels df to get additional label content
-    lables_full["Film_thickness"] = pred_params_real_scale.to_numpy()[:, 0]
-    lables_full["Film_roughness"] = pred_params_real_scale.to_numpy()[:, 1]
-    lables_full["Film_sld"] = pred_params_real_scale.to_numpy()[:, 2]
-    R_pred_real_scale = gen_test.simulate_reflectivity(lables_full)
-
-    log_error_arr = np.zeros_like(R_pred_real_scale)
-    for idx, (curve_true, curve_pred) in enumerate(zip(data_test_real_scale, R_pred_real_scale)):
-        error_per_curve = log_error(curve_true, curve_pred)
-        log_error_arr[idx] = error_per_curve
-
+    mse_lst=[]
     params_test_real_scale = labels_test_unit_scale*std_labels+mean_labels
-
+    for param_set_true, param_set_pred in zip(labels_test_unit_scale, pred_params_unit_scale):
+        mse_lst.append(mse(param_set_true, param_set_pred))
     absolute_error_array = np.absolute(
         pred_params_real_scale.to_numpy()-params_test_real_scale)
-    param_median = np.nanmedian(absolute_error_array, axis=0)
-    log_error_median = np.nanmedian(log_error_arr)
+    param_median = np.median(absolute_error_array, axis=0)
+    mse_median = np.median(mse_lst)
     print(f"Synth median param error: {param_median}")
-    print(f"Synth log error median: {log_error_median}")
-    return absolute_error_array, log_error_arr
+    print(f"Synth mse median: {mse_median}")
+    return absolute_error_array, mse_lst
