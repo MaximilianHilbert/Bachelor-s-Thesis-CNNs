@@ -15,42 +15,45 @@ N_REFL = 109
 def_model = DefaultTrainedModel()
 q_values_used_for_training = def_model.q_values
 sample = def_model.sample
-DEBUG = True
-
+DEBUG = False
+LR=0.001
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 if DEBUG:
-    learning_rate, noise_level, num_units, num_filter_1, num_filter_2, kernel_size_1, kernel_size_2, batch_size=0.001, 0.2, 100, 100, 50, 12, 8, 256
+    noise_level, num_filter_1, num_filter_2, num_filter_3, kernel_size_1, kernel_size_2, kernel_size_3, batch_size=0.2, 25, 50, 75, 12, 8, 4, 256
+    num_units=(np.floor((np.floor((np.floor((N_REFL-kernel_size_1+1)/2)-kernel_size_2+1)/2)-kernel_size_3+1)/2))*num_filter_3
     N_EPOCH = 2
     DEBUG_PATH="debug/"
 
 
 else:
-    learning_rate = float(sys.argv[1])
-    noise_level = float(sys.argv[2])
-    num_units = int(float(sys.argv[3]))
-    num_filter_1 = int(float(sys.argv[4]))
-    num_filter_2 = int(float(sys.argv[5]))
-    kernel_size_1 = int(float(sys.argv[6]))
-    kernel_size_2 = int(float(sys.argv[7]))
+    noise_level = float(sys.argv[1])
+    num_filter_1 = int(float(sys.argv[2]))
+    num_filter_2 = int(float(sys.argv[3]))
+    num_filter_3 = int(float(sys.argv[4]))
+    kernel_size_1 = int(float(sys.argv[5]))
+    kernel_size_2 = int(float(sys.argv[6]))
+    kernel_size_3 = int(float(sys.argv[7]))
     batch_size = int(float(sys.argv[8]))
+    num_units=(np.floor((np.floor((np.floor((N_REFL-kernel_size_1+1)/2)-kernel_size_2+1)/2)-kernel_size_3+1)/2))*num_filter_3
     N_EPOCH = 150
     DEBUG_PATH=""
 
 
-SAVE_STRING = f'{learning_rate}_{noise_level}_{num_units}_{num_filter_1}_{num_filter_2}_{kernel_size_1}_{kernel_size_2}_{batch_size}_{current_time}'
-logs = os.path.join("logs/", DEBUG_PATH, f"{SAVE_STRING}")
+SAVE_STRING = f'{noise_level}_{num_units}_{num_filter_1}_{num_filter_2}_{num_filter_3}_{kernel_size_1}_{kernel_size_2}_{kernel_size_3}_{batch_size}_{current_time}'
+logs = os.path.join("logs_new_metric/", DEBUG_PATH, f"{SAVE_STRING}")
 print("Hyperparameters used")
 print(SAVE_STRING)
 
 # Hyperparameter Training Configuration
-HP_NUM_UNITS = hp.HParam("num_units", hp.Discrete([num_units]))
-HP_LR = hp.HParam("learning_rate", hp.Discrete([learning_rate]))
 HP_NUM_FILTER_1 = hp.HParam("num_filter_1", hp.Discrete([num_filter_1]))
 HP_NUM_FILTER_2 = hp.HParam("num_filter_2", hp.Discrete([num_filter_2]))
+HP_NUM_FILTER_3 = hp.HParam("num_filter_3", hp.Discrete([num_filter_3]))
 HP_KERNEL_SIZE_1 = hp.HParam("kernel_size_1", hp.Discrete([kernel_size_1]))
 HP_KERNEL_SIZE_2 = hp.HParam("kernel_size_2", hp.Discrete([kernel_size_2]))
+HP_KERNEL_SIZE_3 = hp.HParam("kernel_size_3", hp.Discrete([kernel_size_3]))
 HP_NOISE_LEVEL = hp.HParam("noise_level", hp.Discrete([noise_level]))
 HP_BATCH_SIZE = hp.HParam("batch_size", hp.Discrete([batch_size]))
+
 
 #Load Data from disc
 with open(os.path.join("data/", DEBUG_PATH, "test_data_objects"), "rb") as inp:
@@ -112,8 +115,11 @@ def get_model(hparams):
         tf.keras.layers.Conv1D(
             hparams[HP_NUM_FILTER_2], kernel_size=hparams[HP_KERNEL_SIZE_2], padding="valid", activation="relu"),
         tf.keras.layers.MaxPool1D(pool_size=2),
+        tf.keras.layers.Conv1D(
+            hparams[HP_NUM_FILTER_3], kernel_size=hparams[HP_KERNEL_SIZE_3], padding="valid", activation="relu"),
+        tf.keras.layers.MaxPool1D(pool_size=2),
         tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(hparams[HP_NUM_UNITS], activation='relu'),
+        tf.keras.layers.Dense(num_units, activation='relu'),
         tf.keras.layers.Dense(3)
     ])
     return model
@@ -132,7 +138,7 @@ def testing_loss(model):
 
     #Test on experimental data and save results to disc
     test_refl_lst, test_q_values_lst, lables_lst = data_gen.iterate_experiments()
-    th_lst, rh_lst, sld_lst, param_error_lst, _ = pipeline.test_on_exp_data_pipeline(
+    th_lst, rh_lst, sld_lst, param_error_lst = pipeline.test_on_exp_data_pipeline(
         test_refl_lst, test_q_values_lst, lables_lst, q_values_used_for_training, "CNN", sample, model, noise_level, mean_labels, std_labels, mean_data, std_data)
     
     np.savetxt(
@@ -141,12 +147,12 @@ def testing_loss(model):
     np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst)
     np.savetxt(os.path.join("evaluation_errors/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst)
 
-    return 0
+    return mse_errors_synth, absolute_error_array_synth
 #Main Training and logging loop
 def main():
-    hparams = {HP_LR: learning_rate, HP_NOISE_LEVEL: noise_level, HP_NUM_UNITS: num_units,
-               HP_NUM_FILTER_1: num_filter_1, HP_NUM_FILTER_2: num_filter_2,
-               HP_KERNEL_SIZE_1: kernel_size_1, HP_KERNEL_SIZE_2: kernel_size_2, HP_BATCH_SIZE: batch_size}
+    hparams = {HP_NOISE_LEVEL: noise_level,
+            HP_NUM_FILTER_1: num_filter_1, HP_NUM_FILTER_2: num_filter_2, HP_NUM_FILTER_3: num_filter_3,
+            HP_KERNEL_SIZE_1: kernel_size_1, HP_KERNEL_SIZE_2: kernel_size_2, HP_KERNEL_SIZE_3: kernel_size_3, HP_BATCH_SIZE: batch_size}
 
     tb_cb = tf.keras.callbacks.TensorBoard(
         log_dir=logs,
@@ -163,7 +169,7 @@ def main():
 
     model = get_model(hparams)
 
-    opt = tf.keras.optimizers.Adam(learning_rate=hparams[HP_LR])
+    opt = tf.keras.optimizers.Adam(learning_rate=LR)
 
     model.compile(loss="mse",
                   optimizer=opt,
@@ -178,17 +184,21 @@ def main():
               validation_data=validation_dataset_unit_scale,
               )
     print(model.summary())
-    testing_loss(model)
+    mse_errors, absolute_error_array_synth=testing_loss(model)
+    mse_median=np.median(mse_errors)
+    param_errors_median=np.median(absolute_error_array_synth, axis=1)
     model.save(os.path.join("models/", DEBUG_PATH, f"{SAVE_STRING}"))
-
+    
     #file_writer = tf.summary.create_file_writer(f'logs/hp/{SAVE_STRING}_log_loss')
 
     # with file_writer.as_default():
     #     tf.summary.scalar("Fin_log_loss", data=test_loss, step=1)
 
-#    if median_value_log_loss<0.05 and median_error_array[0]<20 and median_error_array[1]<10 and median_error_array[2]<1.5:
-    # with open(f"logs_sign_noise/{SAVE_STRING}", "w") as file:
-    #     file.write(str([median_value_log_loss, median_error_array[0], median_error_array[1], median_error_array[2]]))
+    # if mse_median>0.15 or param_errors_median[0]>20 or param_errors_median[1]>5 or param_errors_median[2]>0.2:
+    #     joined_model_path=os.path.join("models/", DEBUG_PATH, f"{SAVE_STRING}")
+    #     joined_log_path=os.path.join("logs_new_metric/", DEBUG_PATH, f"{SAVE_STRING}")
+    #     subprocess.call(f"rm -r {joined_model_path}", shell=True)
+    #     subprocess.call(f"rm -r {joined_log_path}", shell=True)
 
     # subprocess.call(f"rm -r logs/hp/{SAVE_STRING}_log_loss", shell=True)
     # subprocess.call(f"rm -r logs/hp/{SAVE_STRING}", shell=True)

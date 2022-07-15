@@ -7,3 +7,5 @@ src/models/debug
 src/data
 src/evaluation_errors
 Thesis
+src/logs_new_metric
+src/models

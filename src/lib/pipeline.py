@@ -142,6 +142,7 @@ def calculate_absolute_error_lists(pred_lables_lst, test_lables_lst):
                 error_lst = []
                 # special treatment for single values
                 if pred_set[:, param_idx].shape != lables_set[param_idx].shape:
+                    print(pred_set[:, param_idx])
                     error_lst.append(np.absolute(
                         lables_set[param_idx]-pred_set[:, param_idx])[0])
                 # base case of multiple values in list
