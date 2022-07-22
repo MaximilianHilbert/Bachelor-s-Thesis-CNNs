@@ -11,7 +11,7 @@ from tensorflow import keras
 PARAMETERS = ["Film_thickness", "Film_roughness", "Film_sld"]
 mse=tf.keras.losses.MeanSquaredError()
 
-def create_train_val_test_datasets(combined_dict, BATCH_SIZE):
+def create_train_val_test_datasets(combined_dict, BATCH_SIZE, noise_level):
     train_data = combined_dict["data_train"]
     train_labels = combined_dict["labels_train"]
     test_data = combined_dict["data_test"]
@@ -36,6 +36,9 @@ def create_train_val_test_datasets(combined_dict, BATCH_SIZE):
     datasets_real_scale.append(tf.data.Dataset.from_tensor_slices(
         (test_data, test_labels)).batch(BATCH_SIZE))  # .cache()
     # create dataset of validation data
+    uniform_noise_range_low = 1-noise_level
+    uniform_noise_range_high = 1+noise_level
+    x_val = x_val*np.random.uniform(low=uniform_noise_range_low, high=uniform_noise_range_high, size=x_val.shape)
     validation_dataset_real_scale = tf.data.Dataset.from_tensor_slices(
         (x_val, y_val)).batch(BATCH_SIZE)  # .prefetch(tf.data.experimental.AUTOTUNE)
     return datasets_real_scale, validation_dataset_real_scale
@@ -47,8 +50,8 @@ def evaluation(n_samples_test, test_dataset_real_scale, model, N_REFL):
     return pred_unit_scale
 
 
-# def log_error(y_pred, y):
-#     return np.mean((np.log10(y_pred)-np.log10(y))**2)
+def log_error(y_pred, y):
+    return np.mean(np.absolute((np.log10(y_pred)-np.log10(y))))
 
 def interp_predict_mlp_test(test_refl, test_q_values):
     trained_model_mlp = DefaultTrainedModel()
@@ -142,7 +145,6 @@ def calculate_absolute_error_lists(pred_lables_lst, test_lables_lst):
                 error_lst = []
                 # special treatment for single values
                 if pred_set[:, param_idx].shape != lables_set[param_idx].shape:
-                    print(pred_set[:, param_idx])
                     error_lst.append(np.absolute(
                         lables_set[param_idx]-pred_set[:, param_idx])[0])
                 # base case of multiple values in list
@@ -160,8 +162,10 @@ def calculate_absolute_error_lists(pred_lables_lst, test_lables_lst):
     return th_lst, rh_lst, sld_lst
     
 def test_on_exp_data_pipeline(test_refl_lst, test_q_values_lst, test_lables_lst, q_values_used_for_training, model_name, sample, model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data):
+    refl_sim_lst=[]
     pred_lables_lst = []
     param_error_lst=[]
+    log_error_lst=[]
     th_lst, rh_lst, sld_lst=[], [], []
     mse=tf.keras.losses.MeanSquaredError()
     # loop over all test datasets available
@@ -174,6 +178,7 @@ def test_on_exp_data_pipeline(test_refl_lst, test_q_values_lst, test_lables_lst,
                 test_curves, q_values_used_for_training, q_values, sample, model_cnn, noise_level, mean_labels, std_labels, mean_data, std_data)
         pred_lables_lst.append(pred_dict["predicted_parameters"][[
             "Film_thickness", "Film_roughness", "Film_sld"]])
+        refl_sim_lst.append(pred_dict["predicted_reflectivity"])
     param_clean_test_list=[]
     # norm. params and save to list
     for experiment in test_lables_lst:
@@ -186,13 +191,15 @@ def test_on_exp_data_pipeline(test_refl_lst, test_q_values_lst, test_lables_lst,
         for curve_param_true, curve_param_pred in zip(np.atleast_1d(param_clean_test_list), np.atleast_1d(pred_set.to_numpy())):
             param_error_lst.append(mse(curve_param_true, curve_param_pred).numpy())
 
-            
+    for curve_number, (curve_true, curve_sim) in enumerate(zip(test_refl_lst, refl_sim_lst)):
+        log_error_lst.append(log_error(curve_true, curve_sim))        
     th_lst, rh_lst, sld_lst=calculate_absolute_error_lists(pred_lables_lst, test_lables_lst)
 
     print(f"{model_name}")
     print(f"Exp median param error: {np.median(th_lst), np.median(rh_lst), np.median(sld_lst)}")
     print(f"Exp mse median: {np.median(param_error_lst)}")
-    return th_lst, rh_lst, sld_lst, param_error_lst
+    print(f"Exp log error median: {np.median(np.array(log_error_lst))}")
+    return th_lst, rh_lst, sld_lst, param_error_lst, log_error_lst
 
 
 def test_on_syn_data_in_pipeline(n_samples_test, test_dataset_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels):
@@ -205,7 +212,7 @@ def test_on_syn_data_in_pipeline(n_samples_test, test_dataset_real_scale, labels
     mse_lst=[]
     params_test_real_scale = labels_test_unit_scale*std_labels+mean_labels
     for param_set_true, param_set_pred in zip(labels_test_unit_scale, pred_params_unit_scale):
-        mse_lst.append(mse(param_set_true, param_set_pred))
+        mse_lst.append(mse(param_set_true, param_set_pred).numpy())
     absolute_error_array = np.absolute(
         pred_params_real_scale.to_numpy()-params_test_real_scale)
     param_median = np.median(absolute_error_array, axis=0)
@@ -213,3 +220,6 @@ def test_on_syn_data_in_pipeline(n_samples_test, test_dataset_real_scale, labels
     print(f"Synth median param error: {param_median}")
     print(f"Synth mse median: {mse_median}")
     return absolute_error_array, mse_lst
+
+if __name__=="__main__":
+    print()

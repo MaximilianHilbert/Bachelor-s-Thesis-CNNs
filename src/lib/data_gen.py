@@ -14,7 +14,7 @@ if DEBUG:
 
 else:
     N_TRAIN = 1024000
-    N_TEST = 512
+    N_TEST = 16384
     LOAD_PATH = "data"
 noise_scales = [np.round(x, 2) for x in np.arange(0, 1.0, 1.0/20)]
 
@@ -29,7 +29,9 @@ def save_training_data_and_stats(n_samples_train):
         ["Film_thickness", "Film_roughness", "Film_sld"]), axis=1)
 
     mean_labels, std_labels = np.mean(labels, axis=0), np.std(labels, axis=0)
+    np.savetxt(f"{LOAD_PATH}/labels_real_scale_forvisual.csv", labels)
     labels = (labels-mean_labels)/std_labels
+
 
     np.savetxt(f"{LOAD_PATH}/reflectivity_real_scale.csv", reflectivity)
     np.savetxt(f"{LOAD_PATH}/labels_unit_scale.csv", labels)
@@ -87,7 +89,7 @@ def iterate_experiments():
         test_q_values = pen2[experiment_name]["experiment"]["q"]
         lables = [pen2[experiment_name]["fit"]["Film_thickness"],
                   pen2[experiment_name]["fit"]["Film_roughness"],
-                  pen2[experiment_name]["fit"]["Film_sld"]]
+                  np.real(pen2[experiment_name]["fit"]["Film_sld"])]
         test_refl_lst.append(test_refl)
         test_q_values_lst.append(test_q_values)
         lables_lst.append(lables)
