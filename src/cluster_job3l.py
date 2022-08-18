@@ -20,7 +20,7 @@ DEBUG = False
 LR=0.001
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 if DEBUG:
-    noise_level, num_filter_1, num_filter_2, num_filter_3, kernel_size_1, kernel_size_2, kernel_size_3, batch_size=0.0, 25, 50, 75, 12, 8, 4, 256
+    noise_level, num_filter_1, num_filter_2, num_filter_3, kernel_size_1, kernel_size_2, kernel_size_3, batch_size=0.1, 45, 20, 15, 4, 2, 3, 256
     N_EPOCH = 2
     DEBUG_PATH="debug/"
 
@@ -38,7 +38,8 @@ else:
     N_EPOCH = 150
     DEBUG_PATH=""
 
-num_units=(np.floor((np.floor((np.floor((N_REFL-kernel_size_1+1)/2)-kernel_size_2+1)/2)-kernel_size_3+1)/2))*num_filter_3
+num_units=np.floor((np.floor((np.floor((N_REFL-2*kernel_size_1+2)/2)-2*kernel_size_2+2)/2)-2*kernel_size_3+2)/2)*num_filter_3*0.5
+
 SAVE_STRING = f'{noise_level}_{num_filter_1}_{num_filter_2}_{num_filter_3}_{kernel_size_1}_{kernel_size_2}_{kernel_size_3}_{batch_size}_{current_time}'
 logs = os.path.join("logs_new_metric3l/", DEBUG_PATH, f"{SAVE_STRING}")
 
@@ -110,15 +111,20 @@ def get_model(hparams):
         noise_and_standardize(hparams[HP_NOISE_LEVEL]),
         tf.keras.layers.Conv1D(
             hparams[HP_NUM_FILTER_1], kernel_size=hparams[HP_KERNEL_SIZE_1], padding="valid", activation="relu"),
+        tf.keras.layers.Conv1D(
+    hparams[HP_NUM_FILTER_1], kernel_size=hparams[HP_KERNEL_SIZE_1], padding="valid", activation="relu"),
         tf.keras.layers.MaxPool1D(pool_size=2),
+        tf.keras.layers.Conv1D(
+            hparams[HP_NUM_FILTER_2], kernel_size=hparams[HP_KERNEL_SIZE_2], padding="valid", activation="relu"),
         tf.keras.layers.Conv1D(
             hparams[HP_NUM_FILTER_2], kernel_size=hparams[HP_KERNEL_SIZE_2], padding="valid", activation="relu"),
         tf.keras.layers.MaxPool1D(pool_size=2),
         tf.keras.layers.Conv1D(
             hparams[HP_NUM_FILTER_3], kernel_size=hparams[HP_KERNEL_SIZE_3], padding="valid", activation="relu"),
+        tf.keras.layers.Conv1D(
+            hparams[HP_NUM_FILTER_3], kernel_size=hparams[HP_KERNEL_SIZE_3], padding="valid", activation="relu"),
         tf.keras.layers.MaxPool1D(pool_size=2),
         tf.keras.layers.Flatten(),
-        # tf.keras.layers.Dropout(0.5),
         tf.keras.layers.Dense(num_units, activation='relu'),
         tf.keras.layers.Dense(3)
     ])
@@ -138,21 +144,21 @@ def testing_loss(model):
     #save results for synthetic data for further analysis when noise training
     np.savetxt(
         os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_mse_errors_synth.csv"), mse_errors_synth)
-    np.savetxt(
-        os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_absolute_errors_synth.csv"), absolute_error_array_synth)
+    # np.savetxt(
+    #     os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_absolute_errors_synth.csv"), absolute_error_array_synth)
     
     # Test on experimental data and save results to disc
     test_refl_lst, test_q_values_lst, lables_lst = data_gen.iterate_experiments()
-    th_lst, rh_lst, sld_lst, param_error_lst, log_error_lst = pipeline.test_on_exp_data_pipeline(
+    th_lst, rh_lst, sld_lst, param_error_lst, log_error_lst, _= pipeline.test_on_exp_data_pipeline(
         test_refl_lst, test_q_values_lst, lables_lst, q_values_used_for_training, "CNN", sample, model, noise_level, mean_labels, std_labels, mean_data, std_data)
     
-    np.savetxt(
-        os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_mse_errors_exp.csv"), param_error_lst)
-    np.savetxt(
-        os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_log_errors_exp.csv"), log_error_lst)
-    np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_th.csv"), th_lst)
-    np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst)
-    np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst)
+    # np.savetxt(
+    #     os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_mse_errors_exp.csv"), param_error_lst)
+    # np.savetxt(
+    #     os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_log_errors_exp.csv"), log_error_lst)
+    # np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_th.csv"), th_lst)
+    # np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_rh.csv"), rh_lst)
+    # np.savetxt(os.path.join("evaluation_errors3l/", DEBUG_PATH, f"{SAVE_STRING}_sld.csv"), sld_lst)
     # print("CNN")
     # print([np.median(th_lst), np.median(rh_lst), np.median(sld_lst)])
     # print(np.median(param_error_lst))
@@ -189,7 +195,7 @@ def main():
     model.fit(train_dataset_real_scale,
               epochs=N_EPOCH,
               callbacks=[hp.KerasCallback(
-                  logs, hparams),tb_cb],# early_stopping_cb],
+            logs, hparams),tb_cb, early_stopping_cb],
               verbose=2,
               validation_data=validation_dataset_unit_scale,
               )

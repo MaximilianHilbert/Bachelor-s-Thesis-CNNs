@@ -192,14 +192,14 @@ def test_on_exp_data_pipeline(test_refl_lst, test_q_values_lst, test_lables_lst,
             param_error_lst.append(mse(curve_param_true, curve_param_pred).numpy())
 
     for curve_number, (curve_true, curve_sim) in enumerate(zip(test_refl_lst, refl_sim_lst)):
-        log_error_lst.append(log_error(curve_true, curve_sim))        
+        log_error_lst.append(log_error(curve_true, curve_sim))
     th_lst, rh_lst, sld_lst=calculate_absolute_error_lists(pred_lables_lst, test_lables_lst)
 
     print(f"{model_name}")
     print(f"Exp median param error: {np.median(th_lst), np.median(rh_lst), np.median(sld_lst)}")
     print(f"Exp mse median: {np.median(param_error_lst)}")
     print(f"Exp log error median: {np.median(np.array(log_error_lst))}")
-    return th_lst, rh_lst, sld_lst, param_error_lst, log_error_lst
+    return th_lst, rh_lst, sld_lst, param_error_lst, log_error_lst, refl_sim_lst
 
 
 def test_on_syn_data_in_pipeline(n_samples_test, test_dataset_real_scale, labels_test_unit_scale, model, N_REFL, mean_labels, std_labels):
