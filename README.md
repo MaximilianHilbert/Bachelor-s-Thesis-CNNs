@@ -1,5 +1,4 @@
 # Bachelor Thesis - Fast Scattering Data Analysis Using Convolutional Neural Networks - Maximilian Hilbert
-Abstract 
 In recent years, the established methods of X-ray reflectometry have been systematically complemented by automated data analysis, which requires little to no prior knowledge of the nature of the film parameters. Their ability to analyze data in real-time makes machine learning methods superior to classical, recursive and thus slow methods.
 
 In the present work, a comparison was made between the existing MLP model [1] and an alternative CNN approach. For this purpose, new network architecture and adapted data processing were established and model-specific parameters were optimized. The network was trained on X-ray reflectometry data, simulated with the mlreflect [2] package and evaluated on simulated and experimentally recorded data.
