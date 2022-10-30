@@ -11,4 +11,4 @@
 unset LD_PRELOAD
 source /etc/profile.d/modules.sh
 cd /beegfs/desy/user/hilbertm
-singularity exec --nv --bind /beegfs/desy/user/hilbertm /beegfs/desy/user/hilbertm/singularity_container.sif /beegfs/desy/user/hilbertm/run3l.sh 0.1 25 50 75 12 8 4 256
+singularity exec --nv --bind /beegfs/desy/user/hilbertm /beegfs/desy/user/hilbertm/singularity_container.sif /beegfs/desy/user/hilbertm/run3l.sh 0.3 25 50 75 12 8 4 256

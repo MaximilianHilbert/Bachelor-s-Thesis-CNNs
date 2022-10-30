@@ -1,5 +1,10 @@
 {
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
-    "terminal.integrated.cwd": "/home/maximilian/Dropbox/Studium/bachelor_thesis_cnn_max_h"
-}
+    "terminal.integrated.cwd": "/home/maximilian/Dropbox/Studium/bachelor_thesis_cnn_max_h",
+    "python.analysis.typeCheckingMode": "off",
+    "python.formatting.provider": "black",
+	"editor.formatOnSave": true,
+	"editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    }

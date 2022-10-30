@@ -1,0 +1,41 @@
+BootStrap: docker
+From: nvidia/cuda:10.1-cudnn7-devel-centos7
+
+%runscript
+    exec "$@"
+    echo "This is what happens when you run the container..."
+    source /conda/etc/profile.d/conda.sh
+    conda activate bachelor_env
+    python --version
+    python cluster_job.py
+    
+%startscript
+    echo "This is what happens when you start the container..."
+    source /conda/etc/profile.d/conda.sh
+    conda activate bachelor_env
+    python --version
+
+%post
+    echo "Hello from inside the container"
+    yum install wget -y
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    bash miniconda.sh -b -p conda
+    source /conda/etc/profile.d/conda.sh
+    conda update -y -n base conda
+    conda create -y -n bachelor_env python=3.6
+    rm miniconda.sh -f
+    conda activate bachelor_env
+    conda install pip
+    pip install refl1d
+    pip install mlreflect
+    pip install silx
+    conda install scikit-learn
+    
+
+%test
+    source /conda/etc/profile.d/conda.sh
+    conda activate bachelor_env
+    python --version
+    
+%files
+    cluster_job.py
